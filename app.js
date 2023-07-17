@@ -4,8 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
-
+const bcrypt = require("bcrypt");
+const saltRound  = 10;
 
 
 // s3.getBucketCors({Bucket: process.env.}, function(err, data) {})
@@ -59,12 +59,12 @@ app.get("/register",function(req, res){
 
 
 app.post("/register", async function(req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  });
-
   try {
+    const hash = await bcrypt.hash(req.body.password, saltRound);
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    });
     await newUser.save();
     res.render("secrets");
   } catch (err) {
@@ -72,19 +72,29 @@ app.post("/register", async function(req, res) {
   }
 });
 
+
 app.post("/login", async function(req, res) {
   const username = req.body.username;
-  const password = md5(req.body.password);
+  const password = req.body.password;
 
   try {
     const foundUser = await User.findOne({ email: username });
-    if (foundUser && foundUser.password === password) {
-      res.render("secrets");
+    if (foundUser) {
+      bcrypt.compare(password, foundUser.password, function(err, result) {
+        if (result === true) {
+          res.render("secrets");
+        } else {
+          console.log("Incorrect password");
+        }
+      });
+    } else {
+      console.log("User not found");
     }
   } catch (err) {
     console.log(err);
   }
 });
+
 
 
 
